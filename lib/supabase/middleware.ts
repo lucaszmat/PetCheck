@@ -2,8 +2,8 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const supabaseUrl = "https://ompqznwbshheryqbllom.supabase.co"
+  const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9tcHF6bndic2hoZXJ5cWJsbG9tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYzMzk4MzYsImV4cCI6MjA3MTkxNTgzNn0.whwCjVMKNP4bLTM7LBSe4OEvxFn4fEcjs4rHFKnB08s"
 
   // If Supabase is not configured, skip middleware
   if (!supabaseUrl || !supabaseAnonKey) {
