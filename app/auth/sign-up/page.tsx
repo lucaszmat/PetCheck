@@ -12,6 +12,7 @@ import { useState } from "react"
 import { Eye, EyeOff, Check, X } from "lucide-react"
 
 export default function Page() {
+  const [nome, setNome] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
@@ -22,7 +23,7 @@ export default function Page() {
   const [showPassword, setShowPassword] = useState(false)
   const [showRepeatPassword, setShowRepeatPassword] = useState(false)
   const [step, setStep] = useState<"signup" | "verify">("signup")
-  const [sentCode, setSentCode] = useState("")
+  const [apiPhoneNumber, setApiPhoneNumber] = useState("")
   const router = useRouter()
 
   const validatePassword = (password: string) => {
@@ -62,24 +63,28 @@ export default function Page() {
     return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)}${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`
   }
 
-  const sendSMSVerification = async (phoneNumber: string) => {
-    // Simular código de verificação (em produção, usar API real de SMS)
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
-    setSentCode(code)
-
-    // Simular delay de envio
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // Em produção, aqui seria feita a chamada para API de SMS
-    console.log(`[v0] Código SMS enviado para ${phoneNumber}: ${code}`)
-
-    return true
+  const formatPhoneForAPI = (phoneNumber: string) => {
+    // Remover @s.whatsapp.net e outros caracteres não numéricos
+    let numbers = phoneNumber.replace(/@s\.whatsapp\.net/g, "").replace(/\D/g, "")
+    
+    // Se não começar com 55, adicionar o código do país
+    if (!numbers.startsWith('55')) {
+      numbers = '55' + numbers
+    }
+    
+    return numbers
   }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+
+    if (!nome || nome.trim().length < 2) {
+      setError("Por favor, insira um nome válido")
+      setIsLoading(false)
+      return
+    }
 
     if (!validateEmail(email)) {
       setError("Por favor, insira um e-mail válido")
@@ -107,10 +112,41 @@ export default function Page() {
     }
 
     try {
-      await sendSMSVerification(phone)
+      // Formatar número para API (adicionar código do país 55)
+      const phoneForAPI = formatPhoneForAPI(phone)
+
+      // Criar perfil na API Node.js e enviar código OTP (sem senha)
+      const requestBody = {
+        nome: nome,
+        email: email,
+        phone: phoneForAPI,
+      }
+
+      const response = await fetch("https://api.petcheck.codexsengineer.com.br/api/profiles", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        console.error("Erro ao criar perfil na API:", data)
+        throw new Error(data.message || "Erro ao criar perfil")
+      }
+
+      // Armazenar o número de telefone retornado pela API (limpar @s.whatsapp.net se presente)
+      if (data.data && data.data.phone) {
+        const cleanPhone = formatPhoneForAPI(data.data.phone)
+        setApiPhoneNumber(cleanPhone)
+      }
+
+      // Se chegou aqui, o perfil foi criado e o OTP foi enviado
       setStep("verify")
     } catch (error: unknown) {
-      setError("Erro ao enviar código de verificação")
+      setError(error instanceof Error ? error.message : "Erro ao criar conta")
     } finally {
       setIsLoading(false)
     }
@@ -121,39 +157,66 @@ export default function Page() {
     setIsLoading(true)
     setError(null)
 
-    if (verificationCode !== sentCode) {
-      setError("Código de verificação inválido")
+    if (!verificationCode || verificationCode.length !== 6) {
+      setError("Por favor, insira um código válido de 6 dígitos")
       setIsLoading(false)
       return
     }
 
     try {
+      // Usar o número de telefone retornado pela API ou formatar o número do formulário
+      // Garantir que o número esteja limpo (sem @s.whatsapp.net)
+      const phoneToVerify = apiPhoneNumber || formatPhoneForAPI(phone)
+
+      // Validar o código OTP na API
+      const verifyResponse = await fetch("https://api.petcheck.codexsengineer.com.br/api/auth/verify-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phoneNumber: phoneToVerify,
+          code: verificationCode,
+        }),
+      })
+
+      const verifyData = await verifyResponse.json()
+
+      if (!verifyResponse.ok) {
+        console.error("Erro ao verificar código:", verifyData)
+        throw new Error(verifyData.message || "Código inválido")
+      }
+
+      // Se o código foi validado, criar usuário no Supabase com senha
       const supabase = createClient()
 
-      const { data, error } = await supabase.auth.signUp({
+      // Criar o usuário no Supabase com email e senha
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             phone: phone,
             phone_verified: true,
+            nome: nome, // Incluir o nome do usuário
           },
         },
       })
 
-      if (error) throw error
+      if (signUpError) throw signUpError
 
-      // Criar perfil com telefone verificado
-      if (data.user) {
+      // Criar perfil no Supabase para manter compatibilidade
+      if (signUpData.user && verifyData.data) {
         const { error: profileError } = await supabase.from("profiles").insert({
-          id: data.user.id,
+          id: signUpData.user.id,
           email: email,
           phone: phone,
           phone_verified: true,
+          nome: nome, // Incluir o nome no perfil
         })
 
         if (profileError) {
-          console.log("[v0] Erro ao criar perfil:", profileError)
+          console.log("Erro ao criar perfil:", profileError)
         }
       }
 
@@ -174,7 +237,7 @@ export default function Page() {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">Verificar Telefone</CardTitle>
-              <CardDescription>Enviamos um código de verificação para {phone}</CardDescription>
+              <CardDescription>Enviamos um código de verificação para {apiPhoneNumber || phone}</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleVerifyCode}>
@@ -221,6 +284,18 @@ export default function Page() {
             <CardContent>
               <form onSubmit={handleSignUp}>
                 <div className="flex flex-col gap-6">
+                  <div className="grid gap-2">
+                    <Label htmlFor="nome">Nome</Label>
+                    <Input
+                      id="nome"
+                      type="text"
+                      placeholder="Seu nome completo"
+                      required
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                    />
+                  </div>
+
                   <div className="grid gap-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
@@ -365,7 +440,12 @@ export default function Page() {
                     type="submit"
                     className="w-full"
                     disabled={
-                      isLoading || !passwordValidation.isValid || !validatePhone(phone) || !validateEmail(email)
+                      isLoading || 
+                      !nome || 
+                      nome.trim().length < 2 || 
+                      !passwordValidation.isValid || 
+                      !validatePhone(phone) || 
+                      !validateEmail(email)
                     }
                   >
                     {isLoading ? "Enviando código..." : "Continuar"}
