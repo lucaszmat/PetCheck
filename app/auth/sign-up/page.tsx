@@ -115,11 +115,12 @@ export default function Page() {
       // Formatar número para API (adicionar código do país 55)
       const phoneForAPI = formatPhoneForAPI(phone)
 
-      // Criar perfil na API Node.js e enviar código OTP (sem senha)
+      // Criar perfil na API Node.js e enviar código OTP (com senha)
       const requestBody = {
         nome: nome,
         email: email,
         phone: phoneForAPI,
+        senha: password,
       }
 
       const response = await fetch("https://api.petcheck.codexsengineer.com.br/api/profiles", {
@@ -213,6 +214,7 @@ export default function Page() {
           phone: phone,
           phone_verified: true,
           nome: nome, // Incluir o nome no perfil
+          encrypted_password: password, // Incluir a senha criptografada
         })
 
         if (profileError) {

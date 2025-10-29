@@ -1,5 +1,8 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/use-auth"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { PetsOverview } from "@/components/dashboard/pets-overview"
 import { UpcomingAppointments } from "@/components/dashboard/upcoming-appointments"
@@ -7,60 +10,41 @@ import { QuickActions } from "@/components/dashboard/quick-actions"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { HelpButton } from "@/components/dashboard/help-button"
 
-export default async function DashboardPage() {
-  const supabase = await createClient()
+export default function DashboardPage() {
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const router = useRouter()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
-    redirect("/auth/login")
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/auth/login")
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-emerald-600 mx-auto"></div>
+          <p className="mt-4 text-emerald-600">Carregando dashboard...</p>
+        </div>
+      </div>
+    )
   }
 
-  // Buscar dados do usuário
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
-
-  // Buscar pets do usuário
-  const { data: pets } = await supabase
-    .from("pets")
-    .select("*")
-    .eq("tutor_id", data.user.id)
-    .order("created_at", { ascending: false })
-
-  // Buscar próximas consultas
-  const { data: upcomingConsultas } = await supabase
-    .from("consultas")
-    .select(`
-      *,
-      pets (nome, foto_url)
-    `)
-    .eq("tutor_id", data.user.id)
-    .eq("status", "agendada")
-    .gte("data_consulta", new Date().toISOString())
-    .order("data_consulta", { ascending: true })
-    .limit(5)
-
-  // Buscar lembretes ativos
-  const { data: lembretes } = await supabase
-    .from("lembretes")
-    .select(`
-      *,
-      pets (nome)
-    `)
-    .eq("tutor_id", data.user.id)
-    .eq("status", "ativo")
-    .gte("data_lembrete", new Date().toISOString())
-    .order("data_lembrete", { ascending: true })
-    .limit(5)
+  if (!isAuthenticated || !user) {
+    return null
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50">
-      <DashboardHeader user={data.user} profile={profile} />
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50">
+      <DashboardHeader user={user} profile={user} />
 
       <main className="container mx-auto px-4 py-8">
         <div className="grid gap-8">
           {/* Seção de boas-vindas e resumo */}
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2">
-              <PetsOverview pets={pets || []} />
+              <PetsOverview pets={[]} />
             </div>
             <div>
               <QuickActions />
@@ -69,8 +53,8 @@ export default async function DashboardPage() {
 
           {/* Seção de compromissos e atividades */}
           <div className="grid lg:grid-cols-2 gap-6">
-            <UpcomingAppointments consultas={upcomingConsultas || []} lembretes={lembretes || []} />
-            <RecentActivity pets={pets || []} />
+            <UpcomingAppointments consultas={[]} lembretes={[]} />
+            <RecentActivity pets={[]} />
           </div>
         </div>
       </main>
