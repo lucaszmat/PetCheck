@@ -1,28 +1,40 @@
-import { Suspense } from "react"
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+"use client"
+
+import { Suspense, useEffect, useMemo, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { MedicamentosOverview } from "@/components/medicamentos/medicamentos-overview"
+import { useAuth } from "@/hooks/use-auth"
 
-export default async function MedicamentosPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function MedicamentosPage() {
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const supabase = useMemo(() => createClient(), [])
+  const [pets, setPets] = useState<any[] | null>(null)
+  const [medicamentos, setMedicamentos] = useState<any[] | null>(null)
 
-  if (!user) {
-    redirect("/auth/login")
+  useEffect(() => {
+    if (!isAuthenticated || !user) return
+    ;(async () => {
+      const { data: petsData } = await supabase
+        .from("pets")
+        .select("id, nome, especie")
+        .eq("tutor_id", (user as any).id)
+        .order("nome")
+      setPets((petsData as any[]) || [])
+
+      const { data: medsData } = await supabase
+        .from("medicamentos")
+        .select(`*, pets (nome, especie)`) 
+        .eq("tutor_id", (user as any).id)
+        .order("created_at", { ascending: false })
+      setMedicamentos((medsData as any[]) || [])
+    })()
+  }, [isAuthenticated, user?.id])
+
+  if (isLoading) {
+    return <div className="container mx-auto px-4 py-8">Carregando...</div>
   }
 
-  const { data: pets } = await supabase.from("pets").select("id, nome, especie").eq("tutor_id", user.id).order("nome")
-
-  const { data: medicamentos } = await supabase
-    .from("medicamentos")
-    .select(`
-      *,
-      pets (nome, especie)
-    `)
-    .eq("tutor_id", user.id)
-    .order("created_at", { ascending: false })
+  if (!isAuthenticated || !user) return null
 
   return (
     <div className="container mx-auto px-4 py-8">

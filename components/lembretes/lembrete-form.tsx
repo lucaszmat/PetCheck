@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Bell } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Pet {
   id: string
@@ -28,6 +29,7 @@ interface LembreteFormProps {
 export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     pet_id: lembrete?.pet_id || "",
@@ -63,12 +65,11 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
     setError(null)
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Usuário não autenticado")
+      if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const lembreteData = {
         ...formData,
-        tutor_id: user.user.id,
+        tutor_id: (user as any).id,
         data_lembrete: new Date(formData.data_lembrete).toISOString(),
         pet_id: formData.pet_id || null,
         status: "ativo",
@@ -141,12 +142,15 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
 
             <div className="space-y-2">
               <Label htmlFor="pet_id">Pet (Opcional)</Label>
-              <Select value={formData.pet_id} onValueChange={(value) => handleInputChange("pet_id", value)}>
+              <Select
+                value={formData.pet_id || "none"}
+                onValueChange={(value) => handleInputChange("pet_id", value === "none" ? "" : value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione um pet (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nenhum pet específico</SelectItem>
+                  <SelectItem value="none">Nenhum pet específico</SelectItem>
                   {pets.map((pet) => (
                     <SelectItem key={pet.id} value={pet.id}>
                       {pet.nome}

@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Heart } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 interface PetFormProps {
   pet?: any
@@ -23,6 +24,7 @@ interface PetFormProps {
 export function PetForm({ pet, isEditing = false }: PetFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     nome: pet?.nome || "",
@@ -69,13 +71,12 @@ export function PetForm({ pet, isEditing = false }: PetFormProps) {
     }
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Usuário não autenticado")
+      if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const petData = {
         ...formData,
         peso: formData.peso ? Number.parseFloat(formData.peso) : null,
-        tutor_id: user.user.id,
+        tutor_id: (user as any).id,
       }
 
       if (isEditing && pet) {

@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Pill } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Pet {
   id: string
@@ -29,6 +30,7 @@ interface MedicamentoFormProps {
 export function MedicamentoForm({ pets, medicamento, isEditing = false }: MedicamentoFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     pet_id: medicamento?.pet_id || "",
@@ -50,12 +52,11 @@ export function MedicamentoForm({ pets, medicamento, isEditing = false }: Medica
     setError(null)
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Usuário não autenticado")
+      if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const medicamentoData = {
         ...formData,
-        tutor_id: user.user.id,
+        tutor_id: (user as any).id,
         data_inicio: new Date(formData.data_inicio).toISOString().split("T")[0],
         data_termino: formData.data_termino ? new Date(formData.data_termino).toISOString().split("T")[0] : null,
       }

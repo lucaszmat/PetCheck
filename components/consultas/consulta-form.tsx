@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Stethoscope } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Pet {
   id: string
@@ -28,6 +29,7 @@ interface ConsultaFormProps {
 export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     pet_id: consulta?.pet_id || "",
@@ -51,13 +53,12 @@ export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaForm
     setError(null)
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Usuário não autenticado")
+      if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const consultaData = {
         ...formData,
         valor: formData.valor ? Number.parseFloat(formData.valor) : null,
-        tutor_id: user.user.id,
+        tutor_id: (user as any).id,
         data_consulta: new Date(formData.data_consulta).toISOString(),
       }
 

@@ -44,16 +44,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Não redirecionar para login se estiver usando API Node.js para autenticação
-  // Permitir acesso às rotas de auth sem verificação do Supabase
-  if (
-    request.nextUrl.pathname !== "/" &&
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/auth") &&
-    !request.nextUrl.pathname.startsWith("/dashboard")
-  ) {
-    // no user, potentially respond by redirecting the user to the login page
+  // Usamos autenticação via API (localStorage no client). Evite forçar redirect
+  // pelo Supabase em rotas do app. Só proteja rotas legadas específicas.
+  if (!user && request.nextUrl.pathname.startsWith("/protected")) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
     return NextResponse.redirect(url)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createClient } from "@/lib/supabase/client"
 
 interface User {
   id: string
@@ -85,6 +86,22 @@ export function useAuth() {
           isAuthenticated: true,
         })
 
+        // Vincular sessão do Supabase para passar pelas RLS nas escritas
+        try {
+          const supabase = createClient()
+          const { error: supaErr } = await supabase.auth.signInWithPassword({
+            email,
+            password: senha,
+          })
+          if (supaErr) {
+            // eslint-disable-next-line no-console
+            console.warn("Supabase auth falhou (RLS pode bloquear inserts):", supaErr.message)
+          }
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn("Exceção ao autenticar Supabase:", e)
+        }
+
         return { success: true, user: data.data.user }
       }
 
@@ -100,6 +117,10 @@ export function useAuth() {
   const logout = () => {
     localStorage.removeItem("auth_token")
     localStorage.removeItem("user_data")
+    try {
+      const supabase = createClient()
+      supabase.auth.signOut()
+    } catch {}
     setAuthState({
       user: null,
       token: null,

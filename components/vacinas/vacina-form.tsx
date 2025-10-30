@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Shield } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
 interface Pet {
   id: string
@@ -29,6 +30,7 @@ interface VacinaFormProps {
 export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { user } = useAuth()
 
   const [formData, setFormData] = useState({
     pet_id: vacina?.pet_id || "",
@@ -68,12 +70,11 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
     setError(null)
 
     try {
-      const { data: user } = await supabase.auth.getUser()
-      if (!user.user) throw new Error("Usuário não autenticado")
+      if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const vacinaData = {
         ...formData,
-        tutor_id: user.user.id,
+        tutor_id: (user as any).id,
         data_aplicacao: new Date(formData.data_aplicacao).toISOString().split("T")[0],
         data_proxima_dose: formData.data_proxima_dose
           ? new Date(formData.data_proxima_dose).toISOString().split("T")[0]

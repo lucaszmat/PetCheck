@@ -1,41 +1,59 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
+import { useEffect, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { PetsList } from "@/components/pets/pets-list"
 import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Link from "next/link"
+import { useAuth } from "@/hooks/use-auth"
 
-export default async function PetsPage() {
-  const supabase = await createClient()
+type Pet = {
+  id: string
+  nome: string
+  especie?: string
+  created_at?: string
+}
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
-    redirect("/auth/login")
+export default function PetsPage() {
+  const { user, isAuthenticated, isLoading, getAuthHeaders } = useAuth()
+  const [pets, setPets] = useState<Pet[] | null>(null)
+
+  useEffect(() => {
+    async function fetchPets() {
+      try {
+        // TODO: trocar para sua rota real quando disponível
+        // Ex.: const res = await fetch("https://api.petcheck.codexsengineer.com.br/api/pets", { headers: getAuthHeaders() })
+        setPets([])
+      } catch {
+        setPets([])
+      }
+    }
+    if (isAuthenticated) fetchPets()
+  }, [isAuthenticated, user?.id])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
+      </div>
+    )
   }
 
-  // Buscar dados do usuário
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
-
-  // Buscar todos os pets do usuário
-  const { data: pets } = await supabase
-    .from("pets")
-    .select("*")
-    .eq("tutor_id", data.user.id)
-    .order("created_at", { ascending: false })
+  if (!isAuthenticated || !user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50">
-      <DashboardHeader user={data.user} profile={profile} />
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50">
+      <DashboardHeader user={user as any} profile={user as any} />
 
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-emerald-800">Meus Pets</h1>
             <p className="text-emerald-600 mt-2">
-              {pets?.length === 0
+              {!pets || pets.length === 0
                 ? "Nenhum pet cadastrado ainda"
-                : `${pets?.length} pet${pets?.length && pets.length > 1 ? "s" : ""} cadastrado${pets?.length && pets.length > 1 ? "s" : ""}`}
+                : `${pets.length} pet${pets.length > 1 ? "s" : ""} cadastrado${pets.length > 1 ? "s" : ""}`}
             </p>
           </div>
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700">

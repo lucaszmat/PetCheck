@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import "./globals.css"
+import AuthGate from "@/components/AuthGate"
 
 export const metadata: Metadata = {
   title: "PetCheck - Gerenciamento de Saúde do seu Pet",
@@ -17,7 +18,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>{children}</body>
+      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+        <AuthGate>{children}</AuthGate>
+      </body>
     </html>
   )
 }

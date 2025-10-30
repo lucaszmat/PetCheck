@@ -1,22 +1,25 @@
-import { redirect } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
+"use client"
+
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { PetForm } from "@/components/pets/pet-form"
+import { useAuth } from "@/hooks/use-auth"
 
-export default async function NovoPetPage() {
-  const supabase = await createClient()
+export default function NovoPetPage() {
+  const { user, isAuthenticated, isLoading } = useAuth()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
-    redirect("/auth/login")
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600" />
+      </div>
+    )
   }
 
-  // Buscar dados do usuário
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
+  if (!isAuthenticated || !user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50">
-      <DashboardHeader user={data.user} profile={profile} />
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50">
+      <DashboardHeader user={user as any} profile={user as any} />
 
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
