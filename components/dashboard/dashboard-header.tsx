@@ -222,21 +222,27 @@ export function DashboardHeader({ user, profile }: DashboardHeaderProps) {
                 <Button variant="ghost" className="flex items-center gap-2">
                   <Avatar className="h-8 w-8">
                     <AvatarFallback className="bg-emerald-100 text-emerald-700">
-                      {profile?.nome?.charAt(0) || user.email?.charAt(0) || "U"}
+                      {profile?.nome?.charAt(0) || user?.email?.charAt(0) || "U"}
                     </AvatarFallback>
                   </Avatar>
                   <span className="hidden md:inline text-emerald-700">{profile?.nome || "Usuário"}</span>
                 </Button>
               </DropdownMenuTrigger>
+
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  Configurações
+                {/* Configurações -> Link correto */}
+                <DropdownMenuItem asChild>
+                  <Link href="/configuracoes" className="flex items-center w-full" aria-label="Ir para Configurações">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Configurações</span>
+                  </Link>
                 </DropdownMenuItem>
+
                 <DropdownMenuSeparator />
+
                 <DropdownMenuItem onClick={handleSignOut}>
                   <LogOut className="mr-2 h-4 w-4" />
-                  Sair
+                  <span>Sair</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
