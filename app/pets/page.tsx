@@ -1,12 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { PetsList } from "@/components/pets/pets-list"
 import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase/client"
 
 type Pet = {
   id: string
@@ -18,19 +19,23 @@ type Pet = {
 export default function PetsPage() {
   const { user, isAuthenticated, isLoading, getAuthHeaders } = useAuth()
   const [pets, setPets] = useState<Pet[] | null>(null)
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     async function fetchPets() {
       try {
-        // TODO: trocar para sua rota real quando disponível
-        // Ex.: const res = await fetch("https://api.petcheck.codexsengineer.com.br/api/pets", { headers: getAuthHeaders() })
-        setPets([])
+        const { data } = await supabase
+          .from("pets")
+          .select("id, nome, especie, created_at")
+          .eq("tutor_id", (user as any).id)
+          .order("created_at", { ascending: false })
+        setPets((data as Pet[]) || [])
       } catch {
         setPets([])
       }
     }
-    if (isAuthenticated) fetchPets()
-  }, [isAuthenticated, user?.id])
+    if (isAuthenticated && user?.id) fetchPets()
+  }, [isAuthenticated, user?.id, supabase])
 
   if (isLoading) {
     return (

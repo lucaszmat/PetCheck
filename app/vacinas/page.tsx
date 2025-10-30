@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { VacinasOverview } from "@/components/vacinas/vacinas-overview"
 import { CartaoVacinacao } from "@/components/vacinas/cartao-vacinacao"
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase/client"
 
 type Vacina = Record<string, unknown>
 type Pet = Record<string, unknown>
@@ -16,13 +17,25 @@ export default function VacinasPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const [vacinas, setVacinas] = useState<Vacina[] | null>(null)
   const [pets, setPets] = useState<Pet[] | null>(null)
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    if (!isAuthenticated) return
-    // TODO: substituir por chamadas à sua API quando disponível
-    setVacinas([])
-    setPets([])
-  }, [isAuthenticated])
+    if (!isAuthenticated || !user?.id) return
+    ;(async () => {
+      const { data: petsData } = await supabase
+        .from("pets")
+        .select("id, nome, especie, foto_url")
+        .eq("tutor_id", (user as any).id)
+      setPets((petsData as Pet[]) || [])
+
+      const { data: vacinasData } = await supabase
+        .from("vacinas")
+        .select(`*, pets (nome, foto_url, especie)`) 
+        .eq("tutor_id", (user as any).id)
+        .order("data_aplicacao", { ascending: false })
+      setVacinas((vacinasData as Vacina[]) || [])
+    })()
+  }, [isAuthenticated, user?.id, supabase])
 
   if (isLoading) {
     return (

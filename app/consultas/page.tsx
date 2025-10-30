@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { ConsultasCalendar } from "@/components/consultas/consultas-calendar"
 import { ConsultasList } from "@/components/consultas/consultas-list"
@@ -8,16 +8,24 @@ import { Button } from "@/components/ui/button"
 import { PlusCircle } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase/client"
 
 export default function ConsultasPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
   const [consultas, setConsultas] = useState<any[] | null>(null)
+  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    if (!isAuthenticated) return
-    // TODO: integrar com sua API de consultas
-    setConsultas([])
-  }, [isAuthenticated])
+    if (!isAuthenticated || !user?.id) return
+    ;(async () => {
+      const { data } = await supabase
+        .from("consultas")
+        .select(`*, pets (nome, foto_url)`) 
+        .eq("tutor_id", (user as any).id)
+        .order("data_consulta", { ascending: true })
+      setConsultas((data as any[]) || [])
+    })()
+  }, [isAuthenticated, user?.id, supabase])
 
   if (isLoading) {
     return (
