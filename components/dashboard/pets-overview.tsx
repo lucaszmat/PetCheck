@@ -46,9 +46,11 @@ export function PetsOverview({ pets }: PetsOverviewProps) {
                 : `Você tem ${pets.length} pet${pets.length > 1 ? "s" : ""} cadastrado${pets.length > 1 ? "s" : ""}`}
             </CardDescription>
           </div>
-          <Button className="bg-emerald-600 hover:bg-emerald-700">
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Adicionar Pet
+          <Button className="bg-emerald-600 hover:bg-emerald-700" asChild>
+            <a href="/pets/novo">
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Adicionar Pet
+            </a>
           </Button>
         </div>
       </CardHeader>
