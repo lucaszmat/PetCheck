@@ -22,11 +22,16 @@ export default function Page() {
     e.preventDefault()
     setError(null)
 
+    console.log("🚀 Tentando fazer login...", { email })
+    
     const result = await login(email, password)
+    console.log("📋 Resultado do login:", result)
     
     if (result.success) {
+      console.log("✅ Redirecionando para dashboard...")
       router.push("/dashboard")
     } else {
+      console.error("❌ Erro no login:", result.error)
       setError(result.error || "Erro ao fazer login")
     }
   }

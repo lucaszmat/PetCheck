@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Shield } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { criarNotificacao } from "@/lib/notifications"
 
 interface Pet {
   id: string
@@ -36,7 +38,11 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
     pet_id: vacina?.pet_id || "",
     nome_vacina: vacina?.nome_vacina || "",
     data_aplicacao: vacina?.data_aplicacao || "",
-    data_proxima_dose: vacina?.data_proxima_dose || "",
+    data_proxima_dose: vacina?.data_proxima_dose 
+      ? (vacina.data_proxima_dose.includes("T") 
+          ? new Date(vacina.data_proxima_dose).toISOString().slice(0, 16)
+          : new Date(vacina.data_proxima_dose + "T09:00:00").toISOString().slice(0, 16))
+      : "",
     veterinario: vacina?.veterinario || "",
     clinica: vacina?.clinica || "",
     lote: vacina?.lote || "",
@@ -77,7 +83,7 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
         tutor_id: (user as any).id,
         data_aplicacao: new Date(formData.data_aplicacao).toISOString().split("T")[0],
         data_proxima_dose: formData.data_proxima_dose
-          ? new Date(formData.data_proxima_dose).toISOString().split("T")[0]
+          ? new Date(formData.data_proxima_dose).toISOString()
           : null,
       }
 
@@ -87,6 +93,45 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
       } else {
         const { error } = await supabase.from("vacinas").insert([vacinaData])
         if (error) throw error
+      }
+
+      // Criar lembrete no banco (sempre que houver data_proxima_dose)
+      if (formData.data_proxima_dose && !isEditing) {
+        const selectedPet = pets.find((p) => p.id === formData.pet_id)
+        const dataProximaDoseISO = formData.data_proxima_dose.includes("T")
+          ? new Date(formData.data_proxima_dose).toISOString()
+          : new Date(formData.data_proxima_dose + "T09:00:00").toISOString()
+        
+        const lembreteData = {
+          tutor_id: (user as any).id,
+          pet_id: formData.pet_id,
+          titulo: `Próxima dose da vacina ${formData.nome_vacina} - ${selectedPet?.nome || "pet"}`,
+          descricao: `Lembrete para aplicar a próxima dose da vacina ${formData.nome_vacina} em ${selectedPet?.nome || "o pet"}`,
+          data_lembrete: dataProximaDoseISO,
+          tipo: "vacina",
+          status: "ativo",
+          recorrencia: "unica",
+        }
+
+        const { error: lembreteError } = await supabase.from("lembretes").insert([lembreteData])
+        if (lembreteError) {
+          console.warn("Erro ao criar lembrete:", lembreteError)
+          // Não interrompe o fluxo se falhar ao criar o lembrete
+        }
+
+        // Criar notificação na API
+        const notificacaoResult = await criarNotificacao({
+          tutor_id: (user as any).id,
+          titulo: `Próxima dose da vacina ${formData.nome_vacina} - ${selectedPet?.nome || "pet"}`,
+          data_lembrete: dataProximaDoseISO,
+          notificar_antecedencia: true,
+          minutos_antecedencia: 60, // Padrão: 1 hora antes
+        })
+
+        if (!notificacaoResult.success) {
+          console.warn("Aviso: Vacina salva, mas falhou ao criar notificação:", notificacaoResult.error)
+          // Não interrompe o fluxo se falhar ao criar notificação
+        }
       }
 
       router.push("/vacinas")
@@ -205,7 +250,8 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
               <Label htmlFor="data_proxima_dose">Próxima Dose</Label>
               <Input
                 id="data_proxima_dose"
-                type="date"
+                type="datetime-local"
+                step="300"
                 value={formData.data_proxima_dose}
                 onChange={(e) => handleInputChange("data_proxima_dose", e.target.value)}
               />
@@ -252,6 +298,14 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
               rows={4}
             />
           </div>
+
+          {formData.data_proxima_dose && (
+            <div className="space-y-4 pt-4 border-t border-emerald-100">
+              <p className="text-xs text-emerald-600">
+                Um lembrete será criado automaticamente para a próxima dose em {new Date(formData.data_proxima_dose).toLocaleString("pt-BR")}
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 

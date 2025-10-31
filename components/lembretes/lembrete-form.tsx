@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Bell } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { criarNotificacao } from "@/lib/notifications"
 
 interface Pet {
   id: string
@@ -38,6 +40,8 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
     data_lembrete: lembrete?.data_lembrete ? new Date(lembrete.data_lembrete).toISOString().slice(0, 16) : "",
     tipo: lembrete?.tipo || "outro",
     recorrencia: lembrete?.recorrencia || "unica",
+    notificar_antecedencia: lembrete?.notificar_antecedencia ?? false,
+    minutos_antecedencia: lembrete?.minutos_antecedencia || 60,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -73,6 +77,8 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
         data_lembrete: new Date(formData.data_lembrete).toISOString(),
         pet_id: formData.pet_id || null,
         status: "ativo",
+        notificar_antecedencia: formData.notificar_antecedencia || false,
+        minutos_antecedencia: formData.notificar_antecedencia ? formData.minutos_antecedencia : null,
       }
 
       if (isEditing && lembrete) {
@@ -81,6 +87,22 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
       } else {
         const { error } = await supabase.from("lembretes").insert([lembreteData])
         if (error) throw error
+      }
+
+      // Criar notificação na API (sempre criar notificação)
+      if (!isEditing) {
+        const notificacaoResult = await criarNotificacao({
+          tutor_id: (user as any).id,
+          titulo: formData.titulo || "Lembrete",
+          data_lembrete: lembreteData.data_lembrete,
+          notificar_antecedencia: formData.notificar_antecedencia || false,
+          minutos_antecedencia: formData.minutos_antecedencia || 60,
+        })
+
+        if (!notificacaoResult.success) {
+          console.warn("Aviso: Lembrete salvo, mas falhou ao criar notificação:", notificacaoResult.error)
+          // Não interrompe o fluxo se falhar ao criar notificação
+        }
       }
 
       router.push("/lembretes")
@@ -165,6 +187,7 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
               <Input
                 id="data_lembrete"
                 type="datetime-local"
+                step="300"
                 value={formData.data_lembrete}
                 onChange={(e) => handleInputChange("data_lembrete", e.target.value)}
                 required
@@ -197,6 +220,35 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
               placeholder="Detalhes adicionais sobre o lembrete..."
               rows={4}
             />
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-emerald-100">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="notificar_antecedencia"
+                checked={formData.notificar_antecedencia}
+                onCheckedChange={(checked) => handleInputChange("notificar_antecedencia", checked)}
+              />
+              <Label htmlFor="notificar_antecedencia" className="font-normal cursor-pointer">
+                Notificar com antecedência
+              </Label>
+            </div>
+            {formData.notificar_antecedencia && (
+              <div className="space-y-2 pl-6">
+                <Label htmlFor="minutos_antecedencia">Minutos antes do lembrete</Label>
+                <Input
+                  id="minutos_antecedencia"
+                  type="number"
+                  min="1"
+                  value={formData.minutos_antecedencia}
+                  onChange={(e) => handleInputChange("minutos_antecedencia", parseInt(e.target.value) || 60)}
+                  placeholder="Ex: 60, 120, etc."
+                />
+                <p className="text-xs text-emerald-600">
+                  Você será notificado {formData.minutos_antecedencia} minuto{formData.minutos_antecedencia !== 1 ? "s" : ""} antes do lembrete
+                </p>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}

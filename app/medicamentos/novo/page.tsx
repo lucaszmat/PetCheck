@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { MedicamentoForm } from "@/components/medicamentos/medicamento-form"
+import { DashboardHeader } from "@/components/dashboard/dashboard-header"
 import { useAuth } from "@/hooks/use-auth"
 
 export default function NovoMedicamentoPage() {
@@ -33,8 +34,11 @@ export default function NovoMedicamentoPage() {
   if (!isAuthenticated || !user) return null
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <MedicamentoForm pets={pets} />
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50">
+      <DashboardHeader user={user as any} profile={user as any} />
+      <div className="container mx-auto px-4 py-8">
+        <MedicamentoForm pets={pets} />
+      </div>
     </div>
   )
 }
