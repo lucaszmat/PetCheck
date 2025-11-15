@@ -28,7 +28,8 @@ export function PetForm({ pet, isEditing = false }: PetFormProps) {
 
   const [formData, setFormData] = useState({
     nome: pet?.nome || "",
-    especie: pet?.especie || "cão",
+    // antes: "cão" (não bate com o Select). Agora deixo vazio pra selecionar no componente.
+    especie: pet?.especie || "",
     raca: pet?.raca || "",
     data_nascimento: pet?.data_nascimento || "",
     peso: pet?.peso || "",
@@ -36,6 +37,13 @@ export function PetForm({ pet, isEditing = false }: PetFormProps) {
     sexo: pet?.sexo || "",
     castrado: pet?.castrado || false,
     observacoes: pet?.observacoes || "",
+  })
+
+  // controla se a espécie é "outra" (para mostrar o input de texto)
+  const [isOtherSpecies, setIsOtherSpecies] = useState(() => {
+    const especie = pet?.especie || ""
+    if (!especie) return false
+    return !["cachorro", "gato"].includes(especie.toLowerCase())
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -76,6 +84,7 @@ export function PetForm({ pet, isEditing = false }: PetFormProps) {
       const petData = {
         ...formData,
         peso: formData.peso ? Number.parseFloat(formData.peso) : null,
+        sexo: formData.sexo || null, // "" -> null
         tutor_id: (user as any).id,
       }
 
@@ -128,21 +137,48 @@ export function PetForm({ pet, isEditing = false }: PetFormProps) {
               />
             </div>
 
+            {/* ESPÉCIE + OUTRA ESPÉCIE */}
             <div className="space-y-2">
               <Label htmlFor="especie">Espécie</Label>
-              <Select value={formData.especie} onValueChange={(value) => handleInputChange("especie", value)}>
+              <Select
+                value={
+                  isOtherSpecies && formData.especie !== ""
+                    ? "outro"
+                    : formData.especie
+                }
+                onValueChange={(value) => {
+                  if (value === "outro") {
+                    setIsOtherSpecies(true)
+                    // limpa para o usuário digitar a espécie manualmente
+                    handleInputChange("especie", "")
+                  } else {
+                    setIsOtherSpecies(false)
+                    handleInputChange("especie", value)
+                  }
+                }}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione a espécie" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cão">Cão</SelectItem>
+                  <SelectItem value="cachorro">Cachorro</SelectItem>
                   <SelectItem value="gato">Gato</SelectItem>
-                  <SelectItem value="pássaro">Pássaro</SelectItem>
-                  <SelectItem value="peixe">Peixe</SelectItem>
                   <SelectItem value="outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {isOtherSpecies && (
+              <div className="space-y-2">
+                <Label htmlFor="outra-especie">Qual espécie?</Label>
+                <Input
+                  id="outra-especie"
+                  placeholder="Ex.: coelho, ave, réptil..."
+                  value={formData.especie}
+                  onChange={(e) => handleInputChange("especie", e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="raca">Raça</Label>
@@ -191,13 +227,17 @@ export function PetForm({ pet, isEditing = false }: PetFormProps) {
 
             <div className="space-y-2">
               <Label htmlFor="sexo">Sexo</Label>
-              <Select value={formData.sexo} onValueChange={(value) => handleInputChange("sexo", value)}>
+              <Select
+                value={formData.sexo}
+                onValueChange={(value) => handleInputChange("sexo", value)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o sexo" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="macho">Macho</SelectItem>
                   <SelectItem value="fêmea">Fêmea</SelectItem>
+                  <SelectItem value="indefinido">Indefinido</SelectItem>
                 </SelectContent>
               </Select>
             </div>
