@@ -62,7 +62,12 @@ export function PetsList({ pets }: PetsListProps) {
             <div className="flex items-start gap-4 mb-4">
               <div className="relative h-20 w-20 rounded-full overflow-hidden bg-emerald-100 flex-shrink-0">
                 {pet.foto_url ? (
-                  <Image src={pet.foto_url || "/placeholder.svg"} alt={pet.nome} fill className="object-cover" />
+                  <Image
+                    src={pet.foto_url || "/placeholder.svg"}
+                    alt={pet.nome}
+                    fill
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center">
                     <Heart className="h-10 w-10 text-emerald-400" />
@@ -97,17 +102,31 @@ export function PetsList({ pets }: PetsListProps) {
               )}
             </div>
 
-            {pet.observacoes && <p className="text-sm text-emerald-600 mb-4 line-clamp-2">{pet.observacoes}</p>}
+            {pet.observacoes && (
+              <p className="text-sm text-emerald-600 mb-4 line-clamp-2">
+                {pet.observacoes}
+              </p>
+            )}
 
             <div className="flex gap-2">
-              <Button asChild variant="outline" className="flex-1 border-emerald-300 text-emerald-700 bg-transparent">
+              <Button
+                asChild
+                variant="outline"
+                className="flex-1 border-emerald-300 text-emerald-700 bg-transparent"
+              >
                 <Link href={`/pets/${pet.id}`}>
                   <Calendar className="h-4 w-4 mr-2" />
                   Ver detalhes
                 </Link>
               </Button>
-              <Button asChild variant="ghost" size="icon" className="text-emerald-600">
-                <Link href={`/pets/${pet.id}/editar`}>
+
+              <Button
+                asChild
+                variant="ghost"
+                size="icon"
+                className="text-emerald-600"
+              >
+                <Link href={`/pets/${pet.id}/editar`} aria-label={`Editar ${pet.nome}`}>
                   <Edit className="h-4 w-4" />
                 </Link>
               </Button>

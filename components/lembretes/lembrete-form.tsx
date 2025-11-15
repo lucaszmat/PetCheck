@@ -33,20 +33,6 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
   const supabase = createClient()
   const { user } = useAuth()
 
-  const [formData, setFormData] = useState({
-    pet_id: lembrete?.pet_id || "",
-    titulo: lembrete?.titulo || "",
-    descricao: lembrete?.descricao || "",
-    data_lembrete: lembrete?.data_lembrete ? new Date(lembrete.data_lembrete).toISOString().slice(0, 16) : "",
-    tipo: lembrete?.tipo || "outro",
-    recorrencia: lembrete?.recorrencia || "unica",
-    notificar_antecedencia: lembrete?.notificar_antecedencia ?? false,
-    minutos_antecedencia: lembrete?.minutos_antecedencia || 60,
-  })
-
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
   const tiposLembrete = [
     { value: "consulta", label: "Consulta Veterinária" },
     { value: "vacina", label: "Vacina" },
@@ -62,6 +48,30 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
     { value: "mensal", label: "Mensalmente" },
     { value: "anual", label: "Anualmente" },
   ]
+
+  const [formData, setFormData] = useState({
+    pet_id: lembrete?.pet_id || "",
+    titulo: lembrete?.titulo || "",
+    descricao: lembrete?.descricao || "",
+    data_lembrete: lembrete?.data_lembrete ? new Date(lembrete.data_lembrete).toISOString().slice(0, 16) : "",
+    // antes era "outro" por padrão; agora deixo vazio pra forçar escolha ou texto
+    tipo: lembrete?.tipo || "",
+    recorrencia: lembrete?.recorrencia || "unica",
+    notificar_antecedencia: lembrete?.notificar_antecedencia ?? false,
+    minutos_antecedencia: lembrete?.minutos_antecedencia || 60,
+  })
+
+  // controla se o tipo é "Outro" (para mostrar o input)
+  const [isOtherTipo, setIsOtherTipo] = useState(() => {
+    const t = lembrete?.tipo || ""
+    if (!t) return false
+    // se o tipo salvo NÃO é um dos valores padrão, consideramos "outro"
+    const knownValues = tiposLembrete.map((t) => t.value).filter((v) => v !== "outro")
+    return !knownValues.includes(t)
+  })
+
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -89,7 +99,7 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
         if (error) throw error
       }
 
-      // Criar notificação na API (sempre criar notificação)
+      // Criar notificação na API (sempre criar notificação em novo lembrete)
       if (!isEditing) {
         const notificacaoResult = await criarNotificacao({
           tutor_id: (user as any).id,
@@ -101,7 +111,6 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
 
         if (!notificacaoResult.success) {
           console.warn("Aviso: Lembrete salvo, mas falhou ao criar notificação:", notificacaoResult.error)
-          // Não interrompe o fluxo se falhar ao criar notificação
         }
       }
 
@@ -146,11 +155,28 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
               />
             </div>
 
+            {/* Tipo de Lembrete + Outro */}
             <div className="space-y-2">
               <Label htmlFor="tipo">Tipo de Lembrete</Label>
-              <Select value={formData.tipo} onValueChange={(value) => handleInputChange("tipo", value)}>
+              <Select
+                value={
+                  isOtherTipo && formData.tipo !== ""
+                    ? "outro"
+                    : formData.tipo
+                }
+                onValueChange={(value) => {
+                  if (value === "outro") {
+                    setIsOtherTipo(true)
+                    // limpa para o usuário digitar o tipo livre
+                    handleInputChange("tipo", "")
+                  } else {
+                    setIsOtherTipo(false)
+                    handleInputChange("tipo", value)
+                  }
+                }}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Selecione o tipo" />
                 </SelectTrigger>
                 <SelectContent>
                   {tiposLembrete.map((tipo) => (
@@ -161,6 +187,18 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
                 </SelectContent>
               </Select>
             </div>
+
+            {isOtherTipo && (
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="outro-tipo">Qual tipo?</Label>
+                <Input
+                  id="outro-tipo"
+                  placeholder="Ex.: Retorno, Exame, Controle..."
+                  value={formData.tipo}
+                  onChange={(e) => handleInputChange("tipo", e.target.value)}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="pet_id">Pet (Opcional)</Label>
@@ -196,7 +234,10 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
 
             <div className="md:col-span-2 space-y-2">
               <Label htmlFor="recorrencia">Recorrência</Label>
-              <Select value={formData.recorrencia} onValueChange={(value) => handleInputChange("recorrencia", value)}>
+              <Select
+                value={formData.recorrencia}
+                onValueChange={(value) => handleInputChange("recorrencia", value)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -241,11 +282,17 @@ export function LembreteForm({ pets, lembrete, isEditing = false }: LembreteForm
                   type="number"
                   min="1"
                   value={formData.minutos_antecedencia}
-                  onChange={(e) => handleInputChange("minutos_antecedencia", parseInt(e.target.value) || 60)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "minutos_antecedencia",
+                      Number.isNaN(parseInt(e.target.value)) ? 60 : parseInt(e.target.value)
+                    )
+                  }
                   placeholder="Ex: 60, 120, etc."
                 />
                 <p className="text-xs text-emerald-600">
-                  Você será notificado {formData.minutos_antecedencia} minuto{formData.minutos_antecedencia !== 1 ? "s" : ""} antes do lembrete
+                  Você será notificado {formData.minutos_antecedencia} minuto
+                  {formData.minutos_antecedencia !== 1 ? "s" : ""} antes do lembrete
                 </p>
               </div>
             )}

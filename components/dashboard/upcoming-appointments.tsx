@@ -1,3 +1,4 @@
+import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -59,11 +60,20 @@ export function UpcomingAppointments({ consultas, lembretes }: UpcomingAppointme
             <CardDescription>
               {allAppointments.length === 0
                 ? "Nenhum compromisso agendado"
-                : `${allAppointments.length} compromisso${allAppointments.length > 1 ? "s" : ""} próximo${allAppointments.length > 1 ? "s" : ""}`}
+                : `${allAppointments.length} compromisso${allAppointments.length > 1 ? "s" : ""} próximo${
+                    allAppointments.length > 1 ? "s" : ""
+                  }`}
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" className="border-emerald-300 text-emerald-700 bg-transparent">
-            Ver todos
+          <Button
+            variant="outline"
+            size="sm"
+            className="border-emerald-300 text-emerald-700 bg-transparent"
+            asChild
+          >
+            <Link href="/lembretes">
+              Ver todos
+            </Link>
           </Button>
         </div>
       </CardHeader>
@@ -72,9 +82,6 @@ export function UpcomingAppointments({ consultas, lembretes }: UpcomingAppointme
           <div className="text-center py-8">
             <Calendar className="h-16 w-16 text-emerald-300 mx-auto mb-4" />
             <p className="text-emerald-600 mb-4">Nenhum compromisso agendado</p>
-            <Button variant="outline" className="border-emerald-300 text-emerald-700 bg-transparent">
-              Agendar consulta
-            </Button>
           </div>
         ) : (
           <div className="space-y-4">

@@ -1,44 +1,100 @@
-import { redirect, notFound } from "next/navigation"
-import { createClient } from "@/lib/supabase/server"
-import { DashboardHeader } from "@/components/dashboard/dashboard-header"
+"use client"
+
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { useAuth } from "@/hooks/use-auth"
 import { PetForm } from "@/components/pets/pet-form"
 
-interface EditPetPageProps {
-  params: Promise<{ id: string }>
+interface Pet {
+  id: string
+  nome: string
+  especie: string
+  raca?: string
+  data_nascimento?: string
+  peso?: number | string
+  cor?: string
+  sexo?: string
+  castrado?: boolean
+  foto_url?: string
+  observacoes?: string
 }
 
-export default async function EditPetPage({ params }: EditPetPageProps) {
-  const { id } = await params
-  const supabase = await createClient()
+export default function EditPetPage() {
+  const params = useParams()
+  const router = useRouter()
+  const { user, isAuthenticated, isLoading } = useAuth()
+  const supabase = createClient()
 
-  const { data, error } = await supabase.auth.getUser()
-  if (error || !data?.user) {
-    redirect("/auth/login")
+  const [pet, setPet] = useState<Pet | null>(null)
+  const [loadingPet, setLoadingPet] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const petId = params?.id as string
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/auth/login")
+    }
+  }, [isAuthenticated, isLoading, router])
+
+  useEffect(() => {
+    if (!petId || !user) return
+
+    const fetchPet = async () => {
+      try {
+        setLoadingPet(true)
+        setError(null)
+
+        const { data, error } = await supabase
+          .from("pets")
+          .select("*")
+          .eq("id", petId)
+          .eq("tutor_id", (user as any).id)
+          .single()
+
+        if (error) {
+          console.error(error)
+          setError("Não foi possível carregar os dados do pet.")
+          return
+        }
+
+        setPet(data as Pet)
+      } catch (err) {
+        console.error(err)
+        setError("Ocorreu um erro ao carregar as informações do pet.")
+      } finally {
+        setLoadingPet(false)
+      }
+    }
+
+    fetchPet()
+  }, [petId, user, supabase])
+
+  if (isLoading || loadingPet) {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+        <p className="text-emerald-600">Carregando pet para edição...</p>
+      </div>
+    )
   }
 
-  // Buscar dados do usuário
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single()
-
-  // Buscar pet específico
-  const { data: pet } = await supabase.from("pets").select("*").eq("id", id).eq("tutor_id", data.user.id).single()
+  if (!isAuthenticated || !user) return null
 
   if (!pet) {
-    notFound()
+    return (
+      <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50 flex items-center justify-center">
+        <p className="text-emerald-600">
+          {error || "Pet não encontrado ou você não tem permissão para editá-lo."}
+        </p>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-50">
-      <DashboardHeader user={data.user} profile={profile} />
-
-      <main className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-emerald-800">Editar {pet.nome}</h1>
-            <p className="text-emerald-600 mt-2">Atualize as informações do seu pet</p>
-          </div>
-
-          <PetForm pet={pet} isEditing={true} />
-        </div>
+    <div className="min-h-screen bg-linear-to-br from-emerald-50 to-teal-50">
+      <main className="container mx-auto px-4 py-8 max-w-3xl">
+        <PetForm pet={pet} isEditing />
       </main>
     </div>
   )
