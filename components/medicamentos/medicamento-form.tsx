@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Pill } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { criarNotificacao } from "@/lib/notifications"
 
 interface Pet {
   id: string
@@ -37,7 +38,11 @@ export function MedicamentoForm({ pets, medicamento, isEditing = false }: Medica
     nome_medicamento: medicamento?.nome_medicamento || "",
     dosagem: medicamento?.dosagem || "",
     frequencia: medicamento?.frequencia || "",
-    data_inicio: medicamento?.data_inicio || "",
+    data_inicio: medicamento?.data_inicio 
+      ? (medicamento.data_inicio.includes("T") 
+          ? new Date(medicamento.data_inicio).toISOString().slice(0, 16)
+          : new Date(medicamento.data_inicio + "T09:00:00").toISOString().slice(0, 16))
+      : "",
     data_termino: medicamento?.data_termino || "",
     observacoes: medicamento?.observacoes || "",
     medicamento_ativo: medicamento?.medicamento_ativo ?? true,
@@ -57,7 +62,9 @@ export function MedicamentoForm({ pets, medicamento, isEditing = false }: Medica
       const medicamentoData = {
         ...formData,
         tutor_id: (user as any).id,
-        data_inicio: new Date(formData.data_inicio).toISOString().split("T")[0],
+        data_inicio: formData.data_inicio.includes("T")
+          ? new Date(formData.data_inicio).toISOString()
+          : new Date(formData.data_inicio + "T00:00:00").toISOString(),
         data_termino: formData.data_termino ? new Date(formData.data_termino).toISOString().split("T")[0] : null,
       }
 
@@ -67,6 +74,57 @@ export function MedicamentoForm({ pets, medicamento, isEditing = false }: Medica
       } else {
         const { error } = await supabase.from("medicamentos").insert([medicamentoData])
         if (error) throw error
+      }
+
+      // Criar lembrete no banco (sempre que medicamento_ativo = true)
+      if (formData.medicamento_ativo && !isEditing) {
+        const selectedPet = pets.find((p) => p.id === formData.pet_id)
+        
+        // Mapear frequência para recorrência
+        let recorrencia = "unica"
+        if (formData.frequencia.includes("diária") || formData.frequencia === "1x ao dia" || formData.frequencia === "2x ao dia" || formData.frequencia === "3x ao dia") {
+          recorrencia = "diaria"
+        } else if (formData.frequencia.includes("semanal")) {
+          recorrencia = "semanal"
+        } else if (formData.frequencia.includes("mensal")) {
+          recorrencia = "mensal"
+        }
+
+        // Usar a hora do formulário
+        const dataInicio = formData.data_inicio.includes("T")
+          ? new Date(formData.data_inicio).toISOString()
+          : new Date(formData.data_inicio + "T09:00:00").toISOString()
+        
+        const lembreteData = {
+          tutor_id: (user as any).id,
+          pet_id: formData.pet_id,
+          titulo: `Administrar ${formData.nome_medicamento} - ${formData.dosagem}`,
+          descricao: `Administrar ${formData.dosagem} de ${formData.nome_medicamento} para ${selectedPet?.nome || "o pet"} (${formData.frequencia})`,
+          data_lembrete: dataInicio,
+          tipo: "medicamento",
+          status: "ativo",
+          recorrencia,
+        }
+
+        const { error: lembreteError } = await supabase.from("lembretes").insert([lembreteData])
+        if (lembreteError) {
+          console.warn("Erro ao criar lembrete:", lembreteError)
+          // Não interrompe o fluxo se falhar ao criar o lembrete
+        }
+
+        // Criar notificação na API
+        const notificacaoResult = await criarNotificacao({
+          tutor_id: (user as any).id,
+          titulo: `Administrar ${formData.nome_medicamento} - ${formData.dosagem} - ${selectedPet?.nome || "pet"}`,
+          data_lembrete: dataInicio,
+          notificar_antecedencia: true,
+          minutos_antecedencia: 30, // Padrão: 30 minutos antes
+        })
+
+        if (!notificacaoResult.success) {
+          console.warn("Aviso: Medicamento salvo, mas falhou ao criar notificação:", notificacaoResult.error)
+          // Não interrompe o fluxo se falhar ao criar notificação
+        }
       }
 
       router.push("/medicamentos")
@@ -184,10 +242,11 @@ export function MedicamentoForm({ pets, medicamento, isEditing = false }: Medica
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="data_inicio">Data de Início *</Label>
+              <Label htmlFor="data_inicio">Data e Hora de Início *</Label>
               <Input
                 id="data_inicio"
-                type="date"
+                type="datetime-local"
+                step="300"
                 value={formData.data_inicio}
                 onChange={(e) => handleInputChange("data_inicio", e.target.value)}
                 required
@@ -224,6 +283,14 @@ export function MedicamentoForm({ pets, medicamento, isEditing = false }: Medica
             />
             <Label htmlFor="medicamento_ativo">Medicamento ativo</Label>
           </div>
+
+          {formData.medicamento_ativo && (
+            <div className="space-y-4 pt-4 border-t border-emerald-100">
+              <p className="text-xs text-emerald-600">
+                Um lembrete será criado automaticamente para administrar este medicamento conforme a frequência definida
+              </p>
+            </div>
+          )}
 
           {error && <p className="text-sm text-red-500">{error}</p>}
 

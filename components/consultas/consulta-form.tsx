@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Stethoscope } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/hooks/use-auth"
+import { criarNotificacao } from "@/lib/notifications"
 
 interface Pet {
   id: string
@@ -42,6 +44,8 @@ export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaForm
     observacoes: consulta?.observacoes || "",
     valor: consulta?.valor || "",
     status: consulta?.status || "agendada",
+    notificar_antecedencia: consulta?.notificar_antecedencia ?? false,
+    minutos_antecedencia: consulta?.minutos_antecedencia || 60,
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -60,6 +64,8 @@ export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaForm
         valor: formData.valor ? Number.parseFloat(formData.valor) : null,
         tutor_id: (user as any).id,
         data_consulta: new Date(formData.data_consulta).toISOString(),
+        notificar_antecedencia: formData.notificar_antecedencia || false,
+        minutos_antecedencia: formData.notificar_antecedencia ? formData.minutos_antecedencia : null,
       }
 
       if (isEditing && consulta) {
@@ -68,6 +74,46 @@ export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaForm
       } else {
         const { error } = await supabase.from("consultas").insert([consultaData])
         if (error) throw error
+      }
+
+      // Criar lembrete no banco (sempre criar)
+      if (!isEditing) {
+        const selectedPet = pets.find((p) => p.id === formData.pet_id)
+        const petName = selectedPet?.nome || "pet"
+        const tipoConsulta = formData.tipo_consulta || "Consulta"
+        
+        const lembreteData = {
+          tutor_id: (user as any).id,
+          pet_id: formData.pet_id,
+          titulo: `Consulta Veterinária - ${tipoConsulta} - ${petName}`,
+          descricao: formData.observacoes || `Consulta ${tipoConsulta} para ${petName}`,
+          data_lembrete: consultaData.data_consulta,
+          tipo: "consulta",
+          status: "ativo",
+          recorrencia: "unica",
+          notificar_antecedencia: formData.notificar_antecedencia || false,
+          minutos_antecedencia: formData.notificar_antecedencia ? formData.minutos_antecedencia : null,
+        }
+
+        const { error: lembreteError } = await supabase.from("lembretes").insert([lembreteData])
+        if (lembreteError) {
+          console.warn("Erro ao criar lembrete:", lembreteError)
+          // Não interrompe o fluxo se falhar ao criar o lembrete
+        }
+
+        // Criar notificação na API
+        const notificacaoResult = await criarNotificacao({
+          tutor_id: (user as any).id,
+          titulo: `Consulta Veterinária - ${tipoConsulta} - ${petName}`,
+          data_lembrete: consultaData.data_consulta,
+          notificar_antecedencia: formData.notificar_antecedencia || false,
+          minutos_antecedencia: formData.minutos_antecedencia || 60,
+        })
+
+        if (!notificacaoResult.success) {
+          console.warn("Aviso: Consulta salva, mas falhou ao criar notificação:", notificacaoResult.error)
+          // Não interrompe o fluxo se falhar ao criar notificação
+        }
       }
 
       router.push("/consultas")
@@ -176,6 +222,7 @@ export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaForm
               <Input
                 id="data_consulta"
                 type="datetime-local"
+                step="300"
                 value={formData.data_consulta}
                 onChange={(e) => handleInputChange("data_consulta", e.target.value)}
                 required
@@ -244,6 +291,35 @@ export function ConsultaForm({ pets, consulta, isEditing = false }: ConsultaForm
               placeholder="Observações adicionais..."
               rows={3}
             />
+          </div>
+
+          <div className="space-y-4 pt-4 border-t border-emerald-100">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="notificar_antecedencia"
+                checked={formData.notificar_antecedencia}
+                onCheckedChange={(checked) => handleInputChange("notificar_antecedencia", checked)}
+              />
+              <Label htmlFor="notificar_antecedencia" className="font-normal cursor-pointer">
+                Notificar com antecedência
+              </Label>
+            </div>
+            {formData.notificar_antecedencia && (
+              <div className="space-y-2 pl-6">
+                <Label htmlFor="minutos_antecedencia">Minutos antes da consulta</Label>
+                <Input
+                  id="minutos_antecedencia"
+                  type="number"
+                  min="1"
+                  value={formData.minutos_antecedencia}
+                  onChange={(e) => handleInputChange("minutos_antecedencia", parseInt(e.target.value) || 60)}
+                  placeholder="Ex: 60, 120, etc."
+                />
+                <p className="text-xs text-emerald-600">
+                  Você será notificado {formData.minutos_antecedencia} minuto{formData.minutos_antecedencia !== 1 ? "s" : ""} antes da consulta
+                </p>
+              </div>
+            )}
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
