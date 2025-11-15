@@ -80,7 +80,6 @@ nome_vacina_custom: "",
       if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const vacinaData = {
-<<<<<<< HEAD
   tutor_id: (user as any).id,
   pet_id: formData.pet_id,
   nome_vacina:
@@ -97,15 +96,6 @@ nome_vacina_custom: "",
   observacoes: formData.observacoes,
 }
 
-=======
-        ...formData,
-        tutor_id: (user as any).id,
-        data_aplicacao: new Date(formData.data_aplicacao).toISOString().split("T")[0],
-        data_proxima_dose: formData.data_proxima_dose
-          ? new Date(formData.data_proxima_dose).toISOString()
-          : null,
-      }
->>>>>>> 9d4d5f2975895ab9058ae8a742523c07e5a7b021
 
       if (isEditing && vacina) {
         const { error } = await supabase.from("vacinas").update(vacinaData).eq("id", vacina.id)
