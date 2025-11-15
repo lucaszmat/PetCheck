@@ -59,9 +59,6 @@ export function PetsOverview({ pets }: PetsOverviewProps) {
           <div className="text-center py-8">
             <Heart className="h-16 w-16 text-emerald-300 mx-auto mb-4" />
             <p className="text-emerald-600 mb-4">Nenhum pet cadastrado ainda</p>
-            <Button variant="outline" className="border-emerald-300 text-emerald-700 bg-transparent">
-              Cadastrar meu primeiro pet
-            </Button>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-4">

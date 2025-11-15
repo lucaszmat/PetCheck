@@ -35,6 +35,7 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
   const [formData, setFormData] = useState({
     pet_id: vacina?.pet_id || "",
     nome_vacina: vacina?.nome_vacina || "",
+nome_vacina_custom: "",
     data_aplicacao: vacina?.data_aplicacao || "",
     data_proxima_dose: vacina?.data_proxima_dose || "",
     veterinario: vacina?.veterinario || "",
@@ -73,13 +74,22 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
       if (!user || !(user as any).id) throw new Error("Usuário não autenticado")
 
       const vacinaData = {
-        ...formData,
-        tutor_id: (user as any).id,
-        data_aplicacao: new Date(formData.data_aplicacao).toISOString().split("T")[0],
-        data_proxima_dose: formData.data_proxima_dose
-          ? new Date(formData.data_proxima_dose).toISOString().split("T")[0]
-          : null,
-      }
+  tutor_id: (user as any).id,
+  pet_id: formData.pet_id,
+  nome_vacina:
+    formData.nome_vacina === "outra"
+      ? formData.nome_vacina_custom
+      : formData.nome_vacina,
+  data_aplicacao: new Date(formData.data_aplicacao).toISOString().split("T")[0],
+  data_proxima_dose: formData.data_proxima_dose
+    ? new Date(formData.data_proxima_dose).toISOString().split("T")[0]
+    : null,
+  veterinario: formData.veterinario,
+  clinica: formData.clinica,
+  lote: formData.lote,
+  observacoes: formData.observacoes,
+}
+
 
       if (isEditing && vacina) {
         const { error } = await supabase.from("vacinas").update(vacinaData).eq("id", vacina.id)
@@ -181,12 +191,12 @@ export function VacinaForm({ pets, vacina, isEditing = false }: VacinaFormProps)
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="nome_vacina_custom">Nome da Vacina</Label>
                 <Input
-                  id="nome_vacina_custom"
-                  value={formData.nome_vacina}
-                  onChange={(e) => handleInputChange("nome_vacina", e.target.value)}
-                  placeholder="Digite o nome da vacina"
-                  required
-                />
+              id="nome_vacina_custom"
+              value={formData.nome_vacina_custom}
+              onChange={(e) => handleInputChange("nome_vacina_custom", e.target.value)}
+              placeholder="Digite o nome da vacina"
+              required
+              />
               </div>
             )}
 
