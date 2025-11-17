@@ -28,6 +28,28 @@ interface CartaoVacinacaoProps {
   vacinas: Vacina[]
 }
 
+// 🔎 normaliza para comparar (sem acento, tudo minúsculo)
+function normalize(str: string) {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+}
+
+// palavras-chave que disparam cada vacina recomendada
+const VACINA_KEYWORDS: Record<string, string[]> = {
+  "V8 ou V10 (Múltipla)": ["v8", "v10", "multipla", "múltipla"],
+  "Antirrábica": ["antirrabica", "anti-rabica", "raiva"],
+  "Gripe Canina (Tosse dos Canis)": ["gripe", "tosse dos canis", "tosse", "influenza"],
+  "Giardíase": ["giardia", "giardiase"],
+  "Leishmaniose": ["leish", "leishmaniose", "leishmaniose canina"],
+
+  "V4 ou V5 (Múltipla)": ["v4", "v5", "multipla", "múltipla"],
+  "FeLV (Leucemia Felina)": ["felv", "leucemia felina"],
+  "FIV (AIDS Felina)": ["fiv", "aids felina"],
+  "Consulte o veterinário": [], // não tenta bater com nada
+}
+
 export function CartaoVacinacao({ pets, vacinas }: CartaoVacinacaoProps) {
   const [selectedPetId, setSelectedPetId] = useState<string>(pets[0]?.id || "")
 
@@ -37,17 +59,27 @@ export function CartaoVacinacao({ pets, vacinas }: CartaoVacinacaoProps) {
   // Vacinas essenciais por espécie
   const vacinasEssenciais = {
     cão: ["V8 ou V10 (Múltipla)", "Antirrábica", "Gripe Canina (Tosse dos Canis)", "Giardíase", "Leishmaniose"],
+    cachorro: ["V8 ou V10 (Múltipla)", "Antirrábica", "Gripe Canina (Tosse dos Canis)", "Giardíase", "Leishmaniose"],
     gato: ["V4 ou V5 (Múltipla)", "Antirrábica", "FeLV (Leucemia Felina)", "FIV (AIDS Felina)"],
     outro: ["Consulte o veterinário"],
   }
 
-  const vacinasRecomendadas =
-    vacinasEssenciais[selectedPet?.especie as keyof typeof vacinasEssenciais] || vacinasEssenciais.outro
+  const especieKey = (selectedPet?.especie || "outro") as keyof typeof vacinasEssenciais
+  const vacinasRecomendadas = vacinasEssenciais[especieKey] || vacinasEssenciais.outro
 
-  const getVacinaStatus = (nomeVacina: string) => {
-    const vacina = petVacinas.find((v) => v.nome_vacina.toLowerCase().includes(nomeVacina.toLowerCase()))
+  const getVacinaStatus = (nomeVacinaRecomendada: string) => {
+    const keywords = VACINA_KEYWORDS[nomeVacinaRecomendada] || [nomeVacinaRecomendada]
+    const keywordsNorm = keywords.map(normalize)
+
+    // procura alguma vacina aplicada que combine com qualquer palavra-chave
+    const vacina = petVacinas.find((v) => {
+      const nomeNorm = normalize(v.nome_vacina || "")
+      return keywordsNorm.some((kw) => kw && nomeNorm.includes(kw))
+    })
+
     if (!vacina) return "pendente"
 
+    // se não tem próxima dose registrada, consideramos esquema completo
     if (!vacina.data_proxima_dose) return "completa"
 
     const hoje = new Date()
@@ -66,7 +98,6 @@ export function CartaoVacinacao({ pets, vacinas }: CartaoVacinacaoProps) {
       case "vencida":
         return "bg-red-100 text-red-700"
       case "pendente":
-        return "bg-gray-100 text-gray-700"
       default:
         return "bg-gray-100 text-gray-700"
     }
@@ -117,14 +148,14 @@ export function CartaoVacinacao({ pets, vacinas }: CartaoVacinacaoProps) {
               <div>
                 <h4 className="font-medium text-emerald-800 mb-3">Vacinas Recomendadas</h4>
                 <div className="space-y-2">
-                  {vacinasRecomendadas.map((vacina) => {
-                    const status = getVacinaStatus(vacina)
+                  {vacinasRecomendadas.map((vacinaNome) => {
+                    const status = getVacinaStatus(vacinaNome)
                     return (
                       <div
-                        key={vacina}
+                        key={vacinaNome}
                         className="flex items-center justify-between p-2 rounded border border-emerald-100"
                       >
-                        <span className="text-sm text-emerald-800">{vacina}</span>
+                        <span className="text-sm text-emerald-800">{vacinaNome}</span>
                         <Badge variant="secondary" className={getStatusColor(status)}>
                           {status === "completa"
                             ? "Completa"
@@ -161,7 +192,11 @@ export function CartaoVacinacao({ pets, vacinas }: CartaoVacinacaoProps) {
             <div className="space-y-3">
               {petVacinas
                 .filter((v) => v.data_proxima_dose)
-                .sort((a, b) => new Date(a.data_proxima_dose!).getTime() - new Date(b.data_proxima_dose!).getTime())
+                .sort(
+                  (a, b) =>
+                    new Date(a.data_proxima_dose!).getTime() -
+                    new Date(b.data_proxima_dose!).getTime(),
+                )
                 .slice(0, 5)
                 .map((vacina) => (
                   <div
