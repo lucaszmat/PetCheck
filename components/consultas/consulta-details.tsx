@@ -19,6 +19,7 @@ interface Consulta {
   valor?: number
   status: string
   pets: {
+    id: string  
     nome: string
     foto_url?: string
     especie: string
@@ -95,7 +96,9 @@ export function ConsultaDetails({ consulta }: ConsultaDetailsProps) {
                   <Clock className="h-5 w-5 text-emerald-600" />
                   <div>
                     <p className="text-sm text-emerald-600">Horário</p>
-                    <p className="font-medium text-emerald-800">{format(new Date(consulta.data_consulta), "HH:mm")}</p>
+                    <p className="font-medium text-emerald-800">
+                      {format(new Date(consulta.data_consulta), "HH:mm")}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -194,13 +197,15 @@ export function ConsultaDetails({ consulta }: ConsultaDetailsProps) {
               )}
             </div>
 
-            <Button
-              asChild
-              variant="outline"
-              className="w-full mt-4 border-emerald-300 text-emerald-700 bg-transparent"
-            >
-              <Link href={`/pets/${consulta.pets}`}>Ver perfil do pet</Link>
-            </Button>
+            {consulta.pets.id && (
+              <Button
+                asChild
+                variant="outline"
+                className="w-full mt-4 border-emerald-300 text-emerald-700 bg-transparent"
+              >
+                <Link href={`/pets/${consulta.pets.id}`}>Ver perfil do pet</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
