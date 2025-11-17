@@ -1,7 +1,11 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Heart, Calendar, Edit } from "lucide-react"
+import { Heart, Calendar, Edit, Trash2 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 
@@ -24,16 +28,61 @@ interface PetsListProps {
 }
 
 export function PetsList({ pets }: PetsListProps) {
+  const router = useRouter()
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
   const calculateAge = (birthDate: string) => {
     const today = new Date()
     const birth = new Date(birthDate)
-    const age = today.getFullYear() - birth.getFullYear()
+    let age = today.getFullYear() - birth.getFullYear()
     const monthDiff = today.getMonth() - birth.getMonth()
 
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      return age - 1
+      age -= 1
     }
     return age
+  }
+
+  const handleDeletePet = async (petId: string, petName: string) => {
+    const confirmed = window.confirm(
+      `Tem certeza que deseja excluir o pet "${petName}"?\n\n` +
+        `Ao confirmar, TODAS as informações vinculadas a este pet (consultas, vacinas, medicamentos e lembretes) serão excluídas de forma permanente.`
+    )
+
+    if (!confirmed) return
+
+    try {
+      setDeletingId(petId)
+
+      const res = await fetch(`/api/pets/${petId}`, {
+        method: "DELETE",
+      })
+
+      if (!res.ok) {
+        const text = await res.text()
+        let msg = "Erro ao excluir o pet."
+
+        try {
+          const data = text ? JSON.parse(text) : null
+          msg = data?.error || msg
+        } catch {
+          // Se não vier JSON (ex.: HTML de erro), mostra o texto ou o status
+          msg = text || `Erro ao excluir o pet (HTTP ${res.status}).`
+        }
+
+        console.error("Falha ao excluir pet:", res.status, text)
+        alert(msg)
+        return
+      }
+
+      // recarrega os dados da página (SSR) após a exclusão
+      router.refresh()
+    } catch (e) {
+      console.error("Erro inesperado ao excluir o pet:", e)
+      alert("Ocorreu um erro inesperado ao excluir o pet.")
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   if (pets.length === 0) {
@@ -62,12 +111,7 @@ export function PetsList({ pets }: PetsListProps) {
             <div className="flex items-start gap-4 mb-4">
               <div className="relative h-20 w-20 rounded-full overflow-hidden bg-emerald-100 flex-shrink-0">
                 {pet.foto_url ? (
-                  <Image
-                    src={pet.foto_url || "/placeholder.svg"}
-                    alt={pet.nome}
-                    fill
-                    className="object-cover"
-                  />
+                  <Image src={pet.foto_url || "/placeholder.svg"} alt={pet.nome} fill className="object-cover" />
                 ) : (
                   <div className="h-full w-full flex items-center justify-center">
                     <Heart className="h-10 w-10 text-emerald-400" />
@@ -102,33 +146,32 @@ export function PetsList({ pets }: PetsListProps) {
               )}
             </div>
 
-            {pet.observacoes && (
-              <p className="text-sm text-emerald-600 mb-4 line-clamp-2">
-                {pet.observacoes}
-              </p>
-            )}
+            {pet.observacoes && <p className="text-sm text-emerald-600 mb-4 line-clamp-2">{pet.observacoes}</p>}
 
             <div className="flex gap-2">
-              <Button
-                asChild
-                variant="outline"
-                className="flex-1 border-emerald-300 text-emerald-700 bg-transparent"
-              >
+              <Button asChild variant="outline" className="flex-1 border-emerald-300 text-emerald-700 bg-transparent">
                 <Link href={`/pets/${pet.id}`}>
                   <Calendar className="h-4 w-4 mr-2" />
                   Ver detalhes
                 </Link>
               </Button>
 
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className="text-emerald-600"
-              >
-                <Link href={`/pets/${pet.id}/editar`} aria-label={`Editar ${pet.nome}`}>
+              <Button asChild variant="ghost" size="icon" className="text-emerald-600">
+                <Link href={`/pets/${pet.id}/editar`}>
                   <Edit className="h-4 w-4" />
                 </Link>
+              </Button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="text-red-600 hover:text-red-700"
+                onClick={() => handleDeletePet(pet.id, pet.nome)}
+                disabled={deletingId === pet.id}
+                aria-label={`Excluir o pet ${pet.nome}`}
+              >
+                <Trash2 className="h-4 w-4" />
               </Button>
             </div>
           </CardContent>
